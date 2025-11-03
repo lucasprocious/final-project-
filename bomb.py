@@ -15,6 +15,19 @@ from bomb_phases import *
 # generates the bootup sequence on the LCD
 def bootup(n=0):
     gui._lscroll["text"] = boot_text.replace("\x00", "")
+from bomb_configs import trivia_question  # Import if you use the trivia in configs
+
+def start_bomb_sequence():
+    display_on_lcd(f"Trivia: {trivia_question}")
+    # Wait for user to enter the keypad answer
+    while True:
+        user_input = get_keypad_input()  # Replace with your method for capturing keypad input
+        if user_input.strip() == "60":
+            display_on_lcd("Correct! You may begin defusing the bomb.")
+            proceed_to_bomb_phases()  # Your main bomb game logic
+            break
+        else:
+            display_on_lcd("Incorrect! Please try again.")    
     # configure the remaining GUI widgets
     gui.setup()
     # setup the phase threads, execute them, and check their statuses
