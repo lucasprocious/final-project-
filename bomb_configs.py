@@ -21,117 +21,102 @@ if (RPi):
     from digitalio import DigitalInOut, Direction, Pull
     from adafruit_matrixkeypad import Matrix_Keypad
 
+# --- NEW: globals used by multiple generators ---
+serial_a = 0
+serial_b = 0
+
 #################################
 # setup the electronic components
 #################################
-# 7-segment display
-# 4 pins: 5V(+), GND(-), SDA, SCL
-#         ----------7SEG---------
-if (RPi):
-    i2c = board.I2C()
-    component_7seg = Seg7x4(i2c)
-    # set the 7-segment display brightness (0 -> dimmest; 1 -> brightest)
-    component_7seg.brightness = 0.5
-
-# keypad
-# 8 pins: 10, 9, 11, 5, 6, 13, 19, NA
-#         -----------KEYPAD----------
-if (RPi):
-    # the pins
-    keypad_cols = [DigitalInOut(i) for i in (board.D10, board.D9, board.D11)]
-    keypad_rows = [DigitalInOut(i) for i in (board.D5, board.D6, board.D13, board.D19)]
-    # the keys
-    keypad_keys = ((1, 2, 3), (4, 5, 6), (7, 8, 9), ("*", 0, "#"))
-
-    component_keypad = Matrix_Keypad(keypad_rows, keypad_cols, keypad_keys)
-
-# jumper wires
-# 10 pins: 14, 15, 18, 23, 24, 3V3, 3V3, 3V3, 3V3, 3V3
-#          -------JUMP1------  ---------JUMP2---------
-# the jumper wire pins
-if (RPi):
-    # the pins
-    component_wires = [DigitalInOut(i) for i in (board.D14, board.D15, board.D18, board.D23, board.D24)]
-    for pin in component_wires:
-        # pins are input and pulled down
-        pin.direction = Direction.INPUT
-        pin.pull = Pull.DOWN
-
-# pushbutton
-# 6 pins: 4, 17, 27, 22, 3V3, 3V3
-#         -BUT1- -BUT2-  --BUT3--
-if (RPi):
-    # the state pin (state pin is input and pulled down)
-    component_button_state = DigitalInOut(board.D4)
-    component_button_state.direction = Direction.INPUT
-    component_button_state.pull = Pull.DOWN
-    # the RGB pins
-    component_button_RGB = [DigitalInOut(i) for i in (board.D17, board.D27, board.D22)]
-    for pin in component_button_RGB:
-        # RGB pins are output
-        pin.direction = Direction.OUTPUT
-        pin.value = True
-
-# toggle switches
-# 3x3 pins: 12, 16, 20, 21, 3V3, 3V3, 3V3, 3V3, GND, GND, GND, GND
-#           -TOG1-  -TOG2-  --TOG3--  --TOG4--  --TOG5--  --TOG6--
-if (RPi):
-    # the pins
-    component_toggles = [DigitalInOut(i) for i in (board.D12, board.D16, board.D20, board.D21)]
-    for pin in component_toggles:
-        # pins are input and pulled down
-        pin.direction = Direction.INPUT
-        pin.pull = Pull.DOWN
+# (keep all your existing hardware setup code the same...)
+# 7-seg, keypad, wires, button, toggles definitions stay as-is
 
 ###########
 # functions to generate targets for toggles/wires/keypad/Button
 ###########
+
 def genSerial():
-    # Create your own logic of making a serial number (if needed)
-    # TODO
-    return "B026DES"
+    """
+    Generate a math-themed serial number.
+    Example: S4358SUM  where 43 and 58 are the two numbers to add.
+    """
+    global serial_a, serial_b
+
+    serial_a = randint(10, 99)
+    serial_b = randint(10, 99)
+
+    # S[aa][bb]SUM  -> players can be told:
+    # "Add the two middle numbers in the serial."
+    return f"S{serial_a}{serial_b}SUM"
+
+
+def genKeypadTarget():
+    """
+    Keypad = sum of the two middle numbers in the serial.
+    If serial is S4358SUM, target = 43 + 58 = 101
+    """
+    return str(serial_a + serial_b)
+
 
 def genTogglesTarget():
-    # Create your own logic of making a target number for toggles
-    # TODO
-    return 20
+    """
+    4 toggle switches = a 4-bit binary number (0–15).
+    We use the same sum as the keypad, but clamp it to 0–15.
+    """
+    value = (serial_a + serial_b) % 16
+    return value  # interpreted as an integer the toggles must represent
+
 
 def genWiresTarget():
-    # Create your own logic of making a target number for wires
-    # TODO
-    return 5
-# generates the keypad combination from a keyword and rotation key
-def genKeypadTarget():
-    # Create your own logic of making a keypad combination number if needed
-    # TODO
-    return "26863"
+    """
+    5 wires, indexed to the player as 1..5.
+    Math rule: only PRIME-numbered wires should be cut.
+    Prime indices in {1..5} = 2, 3, 5 -> zero-based: 1, 2, 4
+    """
+    prime_indices_1_based = [2, 3, 5]
+    return [p - 1 for p in prime_indices_1_based]  # store zero-based
+
 
 # generate the color of the pushbutton (which determines how to defuse the phase)
 button_color = choice(["R", "G", "B"])
 
 def genButtonTarget():
-    # TODO
+    """
+    Make the button mathy:
+    - R (red)  = press & release anytime (no math)
+    - G (green)= release when timer seconds are a multiple of 3
+    - B (blue) = release when timer seconds are a multiple of 5
+    We’ll store the divisor as an int; R will store None.
+    """
     global button_color
-    # Create your own logic of making a Button target
-    # appropriately set the target (R is None)
-    b_target = None
-    # G is the first numeric digit in the serial number
-    if (button_color == "G"):
-        b_target = [ n for n in serial if n.isdigit() ][0]
-    # B is the last numeric digit in the serial number
-    elif (button_color == "B"):
-        b_target = [ n for n in serial if n.isdigit() ][-1]
 
-    return b_target
+    if button_color == "R":
+        return None          # any release is fine
+    elif button_color == "G":
+        return 3             # multiple of 3
+    else:  # "B"
+        return 5             # multiple of 5
+
 
 ###############################
+# These lines stay at the bottom of configs
 serial = genSerial()
 toggles_target = genTogglesTarget()
 wires_target = genWiresTarget()
 keypad_target = genKeypadTarget()
 button_target = genButtonTarget()
 
-# set the bomb's LCD bootup text
-boot_text = f"*Add your own text here specific to your bomb*\n"\
-            f"*Serial number: {serial}\n"\
+# set the bomb's LCD bootup text (math-themed instructions)
+boot_text = (
+    "MATH CORE MELTDOWN v1.0\n"
+    f"Serial number: {serial}\n"
+    "KEYPAD: Enter the sum of the two middle numbers in the serial.\n"
+    "WIRES: Cut only the PRIME-numbered wires (2, 3, 5,...).\n"
+    "TOGGLES: Set switches so their binary value matches the keypad answer (mod 16).\n"
+    "BUTTON: Follow the color rule -\n"
+    "   RED: release anytime.\n"
+    "   GREEN: release when seconds are a multiple of 3.\n"
+    "   BLUE: release when seconds are a multiple of 5.\n"
+)
+
             
