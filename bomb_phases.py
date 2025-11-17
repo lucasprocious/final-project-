@@ -232,16 +232,37 @@ class Wires(PhaseThread):
 
     # runs the thread
     def run(self):
-        # TODO
-        pass
+        self._running = True
+        while self._running:
+            # Read all wire states: True = connected, False = "cut"
+            states = [pin.value for pin in self._component]  # length should be 5
+
+            # Which wires are currently cut? (value == 0)
+            cut_indices = {i for i, state in enumerate(states) if state == 0}
+            target_set = set(self._target)  # e.g. {1, 2, 4}
+
+            if cut_indices:
+                # If we cut any wrong wire -> strike
+                if not cut_indices.issubset(target_set):
+                    self._failed = True
+                    self._running = False
+                # If we cut exactly the prime wires -> defused
+                elif cut_indices == target_set:
+                    self._defused = True
+                    self._running = False
+
+            sleep(0.1)
 
     # returns the jumper wires state as a string
     def __str__(self):
-        if (self._defused):
+        if self._defused:
             return "DEFUSED"
         else:
-            # TODO
-            pass
+            # Show which wires (1-based) are currently cut
+            states = [pin.value for pin in self._component]
+            cut = [str(i + 1) for i, s in enumerate(states) if s == 0]
+            return "Cut: " + (", ".join(cut) if cut else "none")
+
 
 # the pushbutton phase
 class Button(PhaseThread):
@@ -301,13 +322,30 @@ class Toggles(PhaseThread):
 
     # runs the thread
     def run(self):
-        # TODO
-        pass
+        self._running = True
+        while self._running:
+            # Read toggle states: assume component_toggles[0] is MSB, [3] is LSB
+            bits = [int(pin.value) for pin in self._component]  # e.g. [1, 0, 1, 1]
+
+            # Convert bits to integer
+            value = 0
+            for bit in bits:
+                value = (value << 1) | bit
+
+            self._value = value
+
+            # If the value equals the target number (0–15), defuse
+            if self._value == self._target:
+                self._defused = True
+                self._running = False
+
+            sleep(0.1)
 
     # returns the toggle switches state as a string
     def __str__(self):
-        if (self._defused):
+        if self._defused:
             return "DEFUSED"
         else:
-            # TODO
-            pass
+            # Optionally show current decimal value for debugging
+            return f"{self._value} (target {self._target})"
+
