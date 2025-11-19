@@ -25,8 +25,8 @@ class Timer(PhaseThread):
     # unchanged
     pass
 
+
 class Keypad(PhaseThread):
-    class Keypad(PhaseThread):
     def run(self):
         # Import math question from configs
         from bomb_configs import math_question
