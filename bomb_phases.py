@@ -26,8 +26,34 @@ class Timer(PhaseThread):
     pass
 
 class Keypad(PhaseThread):
-    # unchanged
-    pass
+    class Keypad(PhaseThread):
+    def run(self):
+        # Import math question from configs
+        from bomb_configs import math_question
+
+        gui.display_on_lcd(math_question["question"])
+        user_input = ""
+
+        while self._running:
+            key = self.component.get_key()  # hardware keypad input
+
+            if key:
+                user_input += key
+                gui.display_on_lcd(user_input)
+
+            # If answer matches → defuse
+            if user_input == math_question["answer"]:
+                self._defused = True
+                gui.display_on_lcd("Correct!")
+                break
+
+            # If too many digits, fail the phase
+            if len(user_input) > len(math_question["answer"]) + 1:
+                self._failed = True
+                gui.display_on_lcd("Incorrect!")
+                break
+
+  
 
 class Wires(PhaseThread):
     def __init__(self, component, target, name="Wires"):
