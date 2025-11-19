@@ -61,15 +61,24 @@ def genButtonTarget():
     return b_target
 
 ###############################
+###############################
 serial = genSerial()
 toggles_target = genTogglesTarget()
 wires_target = genWiresTarget()
 keypad_target = genKeypadTarget()
 button_target = genButtonTarget()
 
+# -----------------------------------------
+# Simple math question for the keypad phase
+# -----------------------------------------
+math_question = {
+    "question": "What is 12 + 8?",
+    "answer": "20"
+}
+# -----------------------------------------
+
 # set the bomb's LCD bootup text
 boot_text = f"*Add your own text here specific to your bomb*\n"\
             f"*Serial number: {serial}\n"\
-
 
             
