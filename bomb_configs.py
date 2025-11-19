@@ -11,6 +11,7 @@ SHOW_BUTTONS = False # show the Pause and Quit buttons on the main LCD GUI?
 COUNTDOWN = 300      # the initial bomb countdown value (seconds)
 NUM_STRIKES = 5      # the total strikes allowed before the bomb "explodes"
 NUM_PHASES = 4       # the total number of initial active bomb phases
+NUM_MATH_QUESTIONS = 3  # number of math questions to solve before accessing other phases
 
 # imports
 from random import randint, shuffle, choice
@@ -88,29 +89,53 @@ if (RPi):
 ###########
 def genSerial():
     # Create your own logic of making a serial number (if needed)
-    # TODO
     return "B026DES"
 
 def genTogglesTarget():
     # Create your own logic of making a target number for toggles
-    # TODO
     return 20
 
 def genWiresTarget():
     # Create your own logic of making a target number for wires
-    # TODO
     return 5
+
 # generates the keypad combination from a keyword and rotation key
 def genKeypadTarget():
     # Create your own logic of making a keypad combination number if needed
-    # TODO
     return "26863"
+
+# generates math questions for the initial challenge
+def genMathQuestions():
+    questions = []
+    for i in range(NUM_MATH_QUESTIONS):
+        # Generate random math problems with answers between 0-99
+        operation = choice(['+', '-', '*'])
+        
+        if operation == '+':
+            num1 = randint(1, 50)
+            num2 = randint(1, 49)
+            answer = num1 + num2
+        elif operation == '-':
+            # Ensure positive results
+            num1 = randint(10, 99)
+            num2 = randint(1, num1)
+            answer = num1 - num2
+        else:  # multiplication
+            num1 = randint(2, 9)
+            num2 = randint(2, 9)
+            answer = num1 * num2
+        
+        questions.append({
+            'question': f"{num1} {operation} {num2}",
+            'answer': str(answer)
+        })
+    
+    return questions
 
 # generate the color of the pushbutton (which determines how to defuse the phase)
 button_color = choice(["R", "G", "B"])
 
 def genButtonTarget():
-    # TODO
     global button_color
     # Create your own logic of making a Button target
     # appropriately set the target (R is None)
@@ -130,9 +155,9 @@ toggles_target = genTogglesTarget()
 wires_target = genWiresTarget()
 keypad_target = genKeypadTarget()
 button_target = genButtonTarget()
+math_questions = genMathQuestions()
 
 # set the bomb's LCD bootup text
-boot_text = f"*Add your own text here specific to your bomb*\n"\
+boot_text = f"*SECURITY PROTOCOL ACTIVATED*\n"\
+            f"*Mathematical verification required*\n"\
             f"*Serial number: {serial}\n"\
-            
-
