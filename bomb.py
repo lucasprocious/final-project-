@@ -4,88 +4,162 @@
 # Team: 
 #################################
 
-# import the configs
+# Import configs and phases
 from bomb_configs import *
-# import the phases
 from bomb_phases import *
+from tkinter import *
+import threading
+from time import sleep
 
-###########
-# functions
-###########
-# generates the bootup sequence on the LCD
-def bootup(n=0):
-    gui._lscroll["text"] = boot_text.replace("\x00", "")
-from bomb_configs import trivia_question  # Import if you use the trivia in configs
+############################
+# Functions
+############################
 
+# Function to display text on the LCD
+def display_on_lcd(message):
+    if hasattr(gui, "_lscroll"):
+        gui._lscroll["text"] = message
+
+# Bootup sequence
+def bootup():
+    display_on_lcd(boot_text.replace("\x00", ""))
+
+# Function to handle the bomb sequence
 def start_bomb_sequence():
-    display_on_lcd(f"Trivia: {trivia_question}")
-    # Wait for user to enter the keypad answer
+    # Display the math question on the LCD
+    display_on_lcd(f"Solve this on the keypad:\n{math_question['question']}")
+
+    # Wait until Keypad phase is defused
     while True:
-        user_input = get_keypad_input()  # Replace with your method for capturing keypad input
-        if user_input.strip() == "60":
+        user_input = get_keypad_input()  # Replace with your method to read keypad input
+        if user_input.strip() == math_question["answer"]:
             display_on_lcd("Correct! You may begin defusing the bomb.")
-            proceed_to_bomb_phases()  # Your main bomb game logic
             break
         else:
-            display_on_lcd("Incorrect! Please try again.")    
-    # configure the remaining GUI widgets
+            display_on_lcd("Incorrect! Try again.")
+
+    # Setup GUI
     gui.setup()
-    # setup the phase threads, execute them, and check their statuses
-    if (RPi):
+
+    # Setup and start the phases
+    if RPi:
         setup_phases()
         check_phases()
-    # if we're animating
-   
-# sets up the phase threads
+
+############################
+# Helper: get keypad input
+############################
+def get_keypad_input():
+    # This is a placeholder; replace with your hardware input method
+    if RPi:
+        return component_keypad.get_key()
+    else:
+        # Simulation mode: ask user in terminal
+        return input("Enter Keypad answer: ")
+
+############################
+# Phase setup
+############################
 def setup_phases():
     global timer, keypad, wires, button, toggles
-    
-    # setup the timer thread
+
+    # Timer
     timer = Timer(component_7seg, COUNTDOWN)
-    # bind the 7-segment display to the LCD GUI so that it can be paused/unpaused from the GUI
     gui.setTimer(timer)
-    # setup the keypad thread
+
+    # Keypad
     keypad = Keypad(component_keypad, keypad_target)
-    # setup the jumper wires thread
+
+    # Wires
     wires = Wires(component_wires, wires_target)
-    # setup the pushbutton thread
+
+    # Button
     button = Button(component_button_state, component_button_RGB, button_target, button_color, timer)
-    # bind the pushbutton to the LCD GUI so that its LED can be turned off when we quit
     gui.setButton(button)
-    # setup the toggle switches thread
+
+    # Toggles
     toggles = Toggles(component_toggles, toggles_target)
 
-    # start the phase threads
+    # Start threads
     timer.start()
     keypad.start()
     wires.start()
     button.start()
     toggles.start()
 
-# checks the phase threads
+############################
+# Phase checking loop
+############################
 def check_phases():
     global active_phases
-    
-    # check the timer
-    if (timer._running):
-        # update the GUI
-        gui._ltimer["text"] = f"Time left: {timer}"
-    else:
-        # the countdown has expired -> explode!
-        # turn off the bomb and render the conclusion GUI
-        turn_off()
-        gui.after(100, gui.conclusion, False)
-        # don't check any more phases
-        return
-    # check the keypad
-    if (keypad._running):
-        # update the GUI
-        gui._lkeypad["text"] = f"Combination: {keypad}"
-        # the phase is defused -> stop the thread
-        if (keypad._defused):
-            keypad._running = False
-            active_phases -= 1
-        # the phase has failed -> strike
-        elif (keypad._failed):
-            strike()
+    active_phases = NUM_PHASES
 
+    while active_phases > 0:
+        sleep(0.5)
+
+        # Timer check
+        if not timer._running or timer._time_remaining <= 0:
+            turn_off()
+            gui.after(100, gui.conclusion, False)
+            break
+        else:
+            gui._ltimer["text"] = f"Time left: {timer}"
+
+        # Keypad check
+        if keypad._running:
+            gui._lkeypad["text"] = f"Combination: {keypad}"
+            if keypad._defused:
+                keypad._running = False
+                active_phases -= 1
+            elif keypad._failed:
+                strike()
+
+        # Wires check
+        if wires._running:
+            gui._lwires["text"] = str(wires)
+            if wires._defused:
+                wires._running = False
+                active_phases -= 1
+
+        # Button check
+        if button._running:
+            gui._lbutton["text"] = str(button)
+            if button._defused:
+                button._running = False
+                active_phases -= 1
+
+        # Toggles check
+        if toggles._running:
+            gui._ltoggles["text"] = str(toggles)
+            if toggles._defused:
+                toggles._running = False
+                active_phases -= 1
+
+############################
+# Placeholder functions
+############################
+def turn_off():
+    # Turn off hardware or GUI
+    display_on_lcd("Bomb off!")
+    timer._running = False
+    keypad._running = False
+    wires._running = False
+    button._running = False
+    toggles._running = False
+
+def strike():
+    display_on_lcd("Strike!")
+    sleep(1)
+
+############################
+# Main program
+############################
+if __name__ == "__main__":
+    # Create GUI instance
+    gui = Lcd()
+
+    # Bootup display
+    bootup()
+
+    # Start the bomb sequence (math question)
+    start_bomb_sequence()
