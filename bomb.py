@@ -21,31 +21,29 @@ def bootup(n=0):
     if (RPi):
         setup_phases()
         check_phases()
+    # if we're animating
    
 # sets up the phase threads
 def setup_phases():
-    global timer, math_challenge, keypad, wires, button, toggles
+    global timer, keypad, wires, button, toggles
     
     # setup the timer thread
     timer = Timer(component_7seg, COUNTDOWN)
     # bind the 7-segment display to the LCD GUI so that it can be paused/unpaused from the GUI
     gui.setTimer(timer)
-    
-    # setup the math challenge thread (must be completed first!)
-    math_challenge = MathChallenge(component_keypad, math_questions)
-    
-    # setup the other phase threads (initially locked)
+    # setup the keypad thread
     keypad = Keypad(component_keypad, keypad_target)
+    # setup the jumper wires thread
     wires = Wires(component_wires, wires_target)
+    # setup the pushbutton thread
     button = Button(component_button_state, component_button_RGB, button_target, button_color, timer)
-    toggles = Toggles(component_toggles, toggles_target)
-    
     # bind the pushbutton to the LCD GUI so that its LED can be turned off when we quit
     gui.setButton(button)
+    # setup the toggle switches thread
+    toggles = Toggles(component_toggles, toggles_target)
 
     # start the phase threads
     timer.start()
-    math_challenge.start()
     keypad.start()
     wires.start()
     button.start()
@@ -53,7 +51,7 @@ def setup_phases():
 
 # checks the phase threads
 def check_phases():
-    global active_phases, math_unlocked
+    global active_phases
     
     # check the timer
     if (timer._running):
@@ -66,84 +64,59 @@ def check_phases():
         gui.after(100, gui.conclusion, False)
         # don't check any more phases
         return
-    
-    # check the math challenge first
-    if (math_challenge._running):
+    # check the keypad
+    if (keypad._running):
         # update the GUI
-        gui._lmath["text"] = f"Math Challenge: {math_challenge}"
+        gui._lkeypad["text"] = f"Combination: {keypad}"
+        # the phase is defused -> stop the thread
+        if (keypad._defused):
+            keypad._running = False
+            active_phases -= 1
         # the phase has failed -> strike
-        if (math_challenge._failed):
+        elif (keypad._failed):
             strike()
-            # reset the math challenge
-            math_challenge._failed = False
-    # math challenge is complete -> unlock other phases
-    elif (not math_unlocked and math_challenge._defused):
-        math_unlocked = True
-        gui._lmath["text"] = "Math Challenge: COMPLETE!"
-        gui._lmath["fg"] = "#00ff00"
-        # unlock all other phases
-        keypad.unlock()
-        wires.unlock()
-        button.unlock()
-        toggles.unlock()
-        # update GUI to show phases are unlocked
-        gui.unlockPhases()
-    
-    # only check other phases if math challenge is complete
-    if (math_unlocked):
-        # check the keypad
-        if (keypad._running):
-            # update the GUI
-            gui._lkeypad["text"] = f"Combination: {keypad}"
-            # the phase is defused -> stop the thread
-            if (keypad._defused):
-                keypad._running = False
-                active_phases -= 1
-            # the phase has failed -> strike
-            elif (keypad._failed):
-                strike()
-                # reset the keypad
-                keypad._failed = False
-                keypad._value = ""
-        # check the wires
-        if (wires._running):
-            # update the GUI
-            gui._lwires["text"] = f"Wires: {wires}"
-            # the phase is defused -> stop the thread
-            if (wires._defused):
-                wires._running = False
-                active_phases -= 1
-            # the phase has failed -> strike
-            elif (wires._failed):
-                strike()
-                # reset the wires
-                wires._failed = False
-        # check the button
-        if (button._running):
-            # update the GUI
-            gui._lbutton["text"] = f"Button: {button}"
-            # the phase is defused -> stop the thread
-            if (button._defused):
-                button._running = False
-                active_phases -= 1
-            # the phase has failed -> strike
-            elif (button._failed):
-                strike()
-                # reset the button
-                button._failed = False
-        # check the toggles
-        if (toggles._running):
-            # update the GUI
-            gui._ltoggles["text"] = f"Toggles: {toggles}"
-            # the phase is defused -> stop the thread
-            if (toggles._defused):
-                toggles._running = False
-                active_phases -= 1
-            # the phase has failed -> strike
-            elif (toggles._failed):
-                strike()
-                # reset the toggles
-                toggles._failed = False
+            # reset the keypad
+            keypad._failed = False
+            keypad._value = ""
+    # check the wires
+    if (wires._running):
+        # update the GUI
+        gui._lwires["text"] = f"Wires: {wires}"
+        # the phase is defused -> stop the thread
+        if (wires._defused):
+            wires._running = False
+            active_phases -= 1
+        # the phase has failed -> strike
+        elif (wires._failed):
+            strike()
+            # reset the wires
+            wires._failed = False
+    # check the button
+    if (button._running):
+        # update the GUI
+        gui._lbutton["text"] = f"Button: {button}"
+        # the phase is defused -> stop the thread
+        if (button._defused):
+            button._running = False
+            active_phases -= 1
+        # the phase has failed -> strike
+        elif (button._failed):
+            strike()
+            # reset the button
+            button._failed = False
+    # check the toggles
+    if (toggles._running):
+        # update the GUI
+        gui._ltoggles["text"] = f"Toggles: {toggles}"
+        # the phase is defused -> stop the thread
+        if (toggles._defused):
+            toggles._running = False
+            active_phases -= 1
+        # the phase has failed -> strike
+        elif (toggles._failed):
+            strike()
+            # reset the toggles
+            toggles._failed = False
 
     # note the strikes on the GUI
     gui._lstrikes["text"] = f"Strikes left: {strikes_left}"
@@ -156,7 +129,7 @@ def check_phases():
         return
 
     # the bomb has been successfully defused!
-    if (active_phases == 0 and math_unlocked):
+    if (active_phases == 0):
         # turn off the bomb and render the conclusion GUI
         turn_off()
         gui.after(100, gui.conclusion, True)
@@ -177,7 +150,6 @@ def strike():
 def turn_off():
     # stop all threads
     timer._running = False
-    math_challenge._running = False
     keypad._running = False
     wires._running = False
     button._running = False
@@ -201,10 +173,10 @@ gui = Lcd(window)
 # initialize the bomb strikes and active phases (i.e., not yet defused)
 strikes_left = NUM_STRIKES
 active_phases = NUM_PHASES
-math_unlocked = False  # track if math challenge is complete
 
 # "boot" the bomb
 gui.after(100, bootup)
 
 # display the LCD GUI
 window.mainloop()
+
